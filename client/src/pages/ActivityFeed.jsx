@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
-import { useWorkspace } from "../state/WorkspaceContext";
+import { useWorkspace } from "../state/WorkspaceContext.jsx";
+import { connectSocket, getSocket } from "../api/socket";
+import { useAuth } from "../context/AuthContext";
 
 function ActivityFeed() {
   const { activeWorkspaceId, activeWorkspace } = useWorkspace();
+  const { token } = useAuth();
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,7 +31,11 @@ function ActivityFeed() {
         );
         setEvents(res.data || []);
       } catch (err) {
-        setError("Failed to load activity");
+        if (err?.response?.status === 403) {
+          setError("You don't have access to this workspace.");
+        } else {
+          setError("Failed to load activity");
+        }
         setEvents([]);
       } finally {
         setLoading(false);
@@ -38,42 +45,40 @@ function ActivityFeed() {
     fetchEvents();
   }, [activeWorkspaceId]);
 
-  /**
-   * Temporary dev utility (kept intentionally)
-   */
-  const createTestTask = async () => {
-    if (!activeWorkspaceId) return;
+  useEffect(() => {
+    let socket = getSocket();
+    if (!socket && token) {
+      socket = connectSocket(token);
+    }
+    if (!socket || !activeWorkspaceId) return;
 
-    try {
-      const boardsRes = await api.get(
-        `/workspaces/${activeWorkspaceId}/boards`
-      );
+    const joinRoom = () => {
+      socket.emit("join-workspace", activeWorkspaceId);
+    };
 
-      if (boardsRes.data.length === 0) {
-        alert("No boards found. Create a board first.");
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on("connect", joinRoom);
+
+    const handleActivity = (event) => {
+      if (
+        !event?.workspaceId ||
+        String(event.workspaceId) !== String(activeWorkspaceId)
+      ) {
         return;
       }
+      setEvents((prev) => [event, ...prev]);
+    };
 
-      const boardId = boardsRes.data[0]._id;
+    socket.on("activity-event", handleActivity);
 
-      await api.post(
-        `/workspaces/${activeWorkspaceId}/boards/${boardId}/tasks`,
-        {
-          title: "First Real Task",
-          description: "Created from frontend",
-          priority: "HIGH",
-        }
-      );
+    return () => {
+      socket.off("connect", joinRoom);
+      socket.off("activity-event", handleActivity);
+    };
+  }, [activeWorkspaceId, token]);
 
-      // Refresh activity
-      const activityRes = await api.get(
-        `/workspaces/${activeWorkspaceId}/activity`
-      );
-      setEvents(activityRes.data || []);
-    } catch (err) {
-      console.error("CREATE TASK ERROR:", err.response || err);
-    }
-  };
 
   /**
    * Render states (intentional, not errors)
@@ -88,8 +93,6 @@ function ActivityFeed() {
   return (
     <div>
       <h2>Activity - {activeWorkspace?.name}</h2>
-
-      <button onClick={createTestTask}>Create Test Task</button>
 
       {events.length === 0 && <p>No activity yet</p>}
 

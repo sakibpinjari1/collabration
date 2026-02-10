@@ -11,6 +11,13 @@ export const WorkspaceProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const addWorkspace = (workspace) => {
+  setWorkspaces((prev) => [...prev, workspace]);
+  setActiveWorkspaceId(workspace._id);
+  localStorage.setItem("activeWorkspaceId", workspace._id);
+};
+
+
   useEffect(() => {
     let isMounted = true;
 
@@ -21,16 +28,31 @@ export const WorkspaceProvider = ({ children }) => {
 
         if (!isMounted) return;
 
-        setWorkspaces(res.data || []);
+        const list = res.data || [];
+        setWorkspaces(list);
 
-        if (res.data?.length === 1) {
-          const id = res.data[0]._id;
+        if (activeWorkspaceId) {
+          const exists = list.some((w) => w._id === activeWorkspaceId);
+          if (!exists) {
+            setActiveWorkspaceId(null);
+            localStorage.removeItem("activeWorkspaceId");
+          }
+        }
+
+        if (list.length === 1) {
+          const id = list[0]._id;
           setActiveWorkspaceId(id);
           localStorage.setItem("activeWorkspaceId", id);
         }
       } catch (err) {
         if (!isMounted) return;
-        setError("Failed to load workspaces");
+        if (err?.response?.status === 403) {
+          setError("You don't have access to this workspace.");
+          setActiveWorkspaceId(null);
+          localStorage.removeItem("activeWorkspaceId");
+        } else {
+          setError("Failed to load workspaces");
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -63,8 +85,10 @@ export const WorkspaceProvider = ({ children }) => {
     workspaces,
     activeWorkspaceId,
     activeWorkspace,
+    addWorkspace,
     loading,
     error,
+
     selectWorkspace,
     clearWorkspace: () => setActiveWorkspaceId(null),
   };

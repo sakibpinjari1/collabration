@@ -40,6 +40,8 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
   console.log("Authenticated socket connected:", socket.userId);
 
+  socket.join(socket.userId.toString());
+
   /**
    * Secure workspace room joining
    */

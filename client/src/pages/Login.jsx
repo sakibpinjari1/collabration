@@ -19,7 +19,7 @@ function Login() {
                 }
                 await register(name, email, password);
                 setError("");
-                alert("Registration successful! Now please login.");
+                // Registration succeeded; switch to login form.
                 setIsRegister(false);
                 setName("");
                 setEmail("");

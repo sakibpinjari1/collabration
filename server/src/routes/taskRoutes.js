@@ -9,6 +9,7 @@ import {
     getTasks,
     updateTask,
     archiveTask,
+    assignTask,
 } from "../controllers/taskController.js";
 
 const router = express.Router();
@@ -42,6 +43,14 @@ router.delete(
     requireWorkspaceMember,
     requireRole(["OWNER", "MEMBER"]),
     archiveTask
+);
+
+router.post(
+    "/:workspaceId/tasks/:taskId/assign",
+    protect,
+    requireWorkspaceMember,
+    requireRole(["OWNER", "MEMBER"]),
+    assignTask
 );
 
 export default router;

@@ -24,7 +24,7 @@ app.use("/api/workspaces", activityRoutes);
 
 app.use((req, res) => {
   console.log("UNMATCHED ROUTE:", req.method, req.originalUrl);
-  res.status(400).json({ message: "Route not found" });
+  res.status(404).json({ message: "Route not found" });
 });
 
 export default app;
