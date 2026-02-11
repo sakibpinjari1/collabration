@@ -2,6 +2,7 @@ import { requireRole, requireWorkspaceMember } from "../middleware/workspaceMidd
 import Task from "../models/Task.js";
 import createActivityEvent from "../utils/createActivityEvent.js";
 import { io } from "../../server.js";
+import Comment from "../models/Comment.js";
 
 export const createTask = async(req, res) => {
     const { title, description, priority } = req.body;
@@ -142,3 +143,23 @@ export const archiveTask = async (req, res) => {
 };
 
 
+export const getComments = async (req, res) => {
+  const { taskId } = req.params;
+  const comments = await Comment.find({ taskId })
+    .sort({ createdAt: -1 })
+    .populate("authorId", "name");
+  res.json(comments);
+};
+
+export const createComment = async (req, res) => {
+  const { taskId } = req.params;
+  const { text } = req.body;
+
+  const comment = await Comment.create({
+    taskId,
+    authorId: req.userId,
+    text,
+  });
+
+  res.status(201).json(comment);
+};

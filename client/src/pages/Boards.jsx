@@ -24,7 +24,11 @@ function Boards() {
     description: "",
     status: "TODO",
     priority: "MEDIUM",
+    dueDate: "",
+    assignedTo: "",
   });
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState("");
 
   
 
@@ -290,11 +294,17 @@ function Boards() {
       description: task.description || "",
       status: task.status || "TODO",
       priority: task.priority || "MEDIUM",
+      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
+      assignedTo: task.assignedTo?.[0] || "",
     });
+    setComments([]);
+    setCommentText("");
   };
 
   const closeTaskModal = () => {
     setSelectedTask(null);
+    setComments([]);
+    setCommentText("");
   };
 
   const saveTaskModal = async () => {
@@ -303,7 +313,10 @@ function Boards() {
     try {
       const res = await api.patch(
         `/workspaces/${activeWorkspaceId}/tasks/${selectedTask._id}`,
-        modalData,
+        {
+          ...modalData,
+          assignedTo: modalData.assignedTo ? [modalData.assignedTo] : [],
+        },
       );
 
       setTasksByBoard((prev) => ({
@@ -318,6 +331,38 @@ function Boards() {
       setError("Failed to update task");
     }
   };
+
+  const loadComments = async (taskId) => {
+    if (!activeWorkspaceId || !taskId) return;
+    try {
+      const res = await api.get(
+        `/workspaces/${activeWorkspaceId}/tasks/${taskId}/comments`,
+      );
+      setComments(res.data || []);
+    } catch (err) {
+      setError("Failed to load comments");
+    }
+  };
+
+  const addComment = async () => {
+    if (!activeWorkspaceId || !selectedTask || !commentText.trim()) return;
+    try {
+      const res = await api.post(
+        `/workspaces/${activeWorkspaceId}/tasks/${selectedTask._id}/comments`,
+        { text: commentText.trim() },
+      );
+      setComments((prev) => [res.data, ...prev]);
+      setCommentText("");
+    } catch (err) {
+      setError("Failed to add comment");
+    }
+  };
+
+  useEffect(() => {
+    if (selectedTask?._id) {
+      loadComments(selectedTask._id);
+    }
+  }, [selectedTask?._id]);
 
   const onDragStart = (e, taskId) => {
     e.dataTransfer.setData("taskId", taskId);
@@ -358,70 +403,32 @@ function Boards() {
 
   return (
     <>
-    <div
-      style={{
-        padding: "16px",
-        borderRadius: "12px",
-        background: "linear-gradient(135deg, #f7f4ff 0%, #f0fff9 100%)",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-        border: "1px solid #e6e6ef",
-      }}
-    >
-      <h2 style={{ marginTop: 0, marginBottom: "12px" }}>Boards</h2>
+    <div className="card">
+      <h2 className="section-title">Boards</h2>
 
-      <form onSubmit={createBoard} style={{ marginBottom: "16px" }}>
+      <form onSubmit={createBoard} className="form-row section">
         <input
+          className="input"
           type="text"
           placeholder="New board name"
           value={newBoardName}
           onChange={(e) => setNewBoardName(e.target.value)}
-          style={{
-            padding: "8px 10px",
-            borderRadius: "8px",
-            border: "1px solid #cfcfe3",
-            minWidth: "220px",
-          }}
         />
-        <button
-          type="submit"
-          style={{
-            marginLeft: "8px",
-            padding: "8px 12px",
-            borderRadius: "8px",
-            border: "1px solid #2d6cdf",
-            background: "#2d6cdf",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
+        <button className="button" type="submit">
           Create
         </button>
       </form>
 
       {boards.length === 0 && <p>No boards yet.</p>}
 
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      <ul className="list-reset">
         {boards.map((board) => (
-          <li
-            key={board._id}
-            style={{
-              marginBottom: "16px",
-              padding: "12px",
-              borderRadius: "10px",
-              background: "white",
-              border: "1px solid #e6e6ef",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-            }}
-          >
-            <div style={{ fontWeight: "600", marginBottom: "8px" }}>
-              {board.name}
-            </div>
+          <li key={board._id} className="card">
+            <div className="section-title">{board.name}</div>
 
-            <form
-              onSubmit={(e) => createTask(e, board._id)}
-              style={{ marginBottom: "8px" }}
-            >
+            <form onSubmit={(e) => createTask(e, board._id)} className="form-row">
               <input
+                className="input"
                 type="text"
                 placeholder="New task title"
                 value={newTaskTitleByBoard[board._id] || ""}
@@ -431,14 +438,9 @@ function Boards() {
                     [board._id]: e.target.value,
                   }))
                 }
-                style={{
-                  padding: "6px 8px",
-                  borderRadius: "8px",
-                  border: "1px solid #cfcfe3",
-                  minWidth: "200px",
-                }}
               />
               <select
+                className="select"
                 value={newTaskPriorityByBoard[board._id] || "MEDIUM"}
                 onChange={(e) =>
                   setNewTaskPriorityByBoard((prev) => ({
@@ -446,30 +448,13 @@ function Boards() {
                     [board._id]: e.target.value,
                   }))
                 }
-                style={{
-                  marginLeft: "8px",
-                  padding: "6px 8px",
-                  borderRadius: "8px",
-                  border: "1px solid #cfcfe3",
-                }}
               >
                 <option value="LOW">LOW</option>
                 <option value="MEDIUM">MEDIUM</option>
                 <option value="HIGH">HIGH</option>
               </select>
 
-              <button
-                type="submit"
-                style={{
-                  marginLeft: "8px",
-                  padding: "6px 10px",
-                  borderRadius: "8px",
-                  border: "1px solid #1f9d7a",
-                  background: "#1f9d7a",
-                  color: "white",
-                  cursor: "pointer",
-                }}
-              >
+              <button className="button" type="submit">
                 Add Task
               </button>
             </form>
@@ -477,7 +462,7 @@ function Boards() {
             {(tasksByBoard[board._id] || []).length === 0 ? (
               <p>No tasks yet.</p>
             ) : (
-              <div style={{ display: "flex", gap: "12px" }}>
+              <div className="kanban">
                 {columns.map((col) => {
                   const tasks = (tasksByBoard[board._id] || []).filter(
                     (t) => (t.status || "TODO") === col,
@@ -487,24 +472,7 @@ function Boards() {
                       key={col}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => onDropTask(e, board._id, col)}
-                      style={{
-                        flex: 1,
-                        background:
-                          col === "TODO"
-                            ? "#f0f7ff"
-                            : col === "DOING"
-                              ? "#fff7e6"
-                              : "#eefbf3",
-                        borderRadius: "10px",
-                        padding: "8px",
-                        minHeight: "120px",
-                        border:
-                          col === "TODO"
-                            ? "1px solid #cfe3ff"
-                            : col === "DOING"
-                              ? "1px solid #ffe0b2"
-                              : "1px solid #c8f0da",
-                      }}
+                      className={`kanban-column ${col.toLowerCase()}`}
                     >
                       <h4 style={{ margin: "4px 0 8px 0" }}>
                         {col} ({tasks.length})
@@ -513,13 +481,7 @@ function Boards() {
                         {tasks.map((task) => (
                           <li
                             key={task._id}
-                            style={{
-                              padding: "6px 8px",
-                              marginBottom: "6px",
-                              borderRadius: "6px",
-                              background: "white",
-                              border: "1px solid #e4e6f2",
-                            }}
+                            className="task-card"
                           >
                             <div
                               style={{
@@ -560,16 +522,7 @@ function Boards() {
                                     e.target.value,
                                   )
                                 }
-                                style={{
-                                  fontSize: "12px",
-                                  padding: "2px 8px",
-                                  borderRadius: "999px",
-                                  border: "1px solid rgba(0,0,0,0.1)",
-                                  background: "#eef2ff",
-                                  color: "#3730a3",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
+                                className="select"
                               >
                                 <option value="TODO">TODO</option>
                                 <option value="DOING">DOING</option>
@@ -584,26 +537,7 @@ function Boards() {
                                     e.target.value,
                                   )
                                 }
-                                style={{
-                                  fontSize: "12px",
-                                  padding: "2px 8px",
-                                  borderRadius: "999px",
-                                  border: "1px solid rgba(0,0,0,0.1)",
-                                  background:
-                                    task.priority === "HIGH"
-                                      ? "#ffe5e5"
-                                      : task.priority === "LOW"
-                                        ? "#e7f7e9"
-                                        : "#fff4d6",
-                                  color:
-                                    task.priority === "HIGH"
-                                      ? "#b30000"
-                                      : task.priority === "LOW"
-                                        ? "#1f7a32"
-                                        : "#8a5a00",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
+                                className="select"
                               >
                                 <option value="LOW">LOW</option>
                                 <option value="MEDIUM">MEDIUM</option>
@@ -617,11 +551,7 @@ function Boards() {
                                   assignTask(board._id, task._id, e.target.value)
                                 }
                                 defaultValue=""
-                                style={{
-                                  padding: "4px 8px",
-                                  borderRadius: "6px",
-                                  border: "1px solid #cfcfe3",
-                                }}
+                                className="select"
                               >
                                 <option value="" disabled>
                                   Assign to...
@@ -768,32 +698,17 @@ function Boards() {
     </div>
     {selectedTask && (
       <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          background: "rgba(0,0,0,0.4)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 999,
-        }}
+        className="modal-overlay"
         onClick={closeTaskModal}
       >
         <div
-          style={{
-            background: "white",
-            padding: "20px",
-            borderRadius: "12px",
-            width: "400px",
-          }}
+          className="modal"
           onClick={(e) => e.stopPropagation()}
         >
           <h3>Edit Task</h3>
 
           <input
+            className="input"
             type="text"
             value={modalData.title}
             onChange={(e) =>
@@ -803,6 +718,7 @@ function Boards() {
           />
 
           <textarea
+            className="textarea"
             value={modalData.description}
             onChange={(e) =>
               setModalData((prev) => ({ ...prev, description: e.target.value }))
@@ -810,7 +726,18 @@ function Boards() {
             style={{ width: "100%", marginBottom: "8px" }}
           />
 
+          <input
+            className="input"
+            type="date"
+            value={modalData.dueDate}
+            onChange={(e) =>
+              setModalData((prev) => ({ ...prev, dueDate: e.target.value }))
+            }
+            style={{ width: "100%", marginBottom: "8px" }}
+          />
+
           <select
+            className="select"
             value={modalData.status}
             onChange={(e) =>
               setModalData((prev) => ({ ...prev, status: e.target.value }))
@@ -822,6 +749,7 @@ function Boards() {
           </select>
 
           <select
+            className="select"
             value={modalData.priority}
             onChange={(e) =>
               setModalData((prev) => ({ ...prev, priority: e.target.value }))
@@ -833,11 +761,65 @@ function Boards() {
             <option value="HIGH">HIGH</option>
           </select>
 
+          <select
+            className="select"
+            value={modalData.assignedTo}
+            onChange={(e) =>
+              setModalData((prev) => ({ ...prev, assignedTo: e.target.value }))
+            }
+            style={{ marginLeft: "8px" }}
+          >
+            <option value="">Unassigned</option>
+            {members.map((m) => (
+              <option
+                key={m.userId?._id || m.userId}
+                value={m.userId?._id || m.userId}
+              >
+                {m.userId?.name || "User"}
+              </option>
+            ))}
+          </select>
+
           <div style={{ marginTop: "12px" }}>
-            <button onClick={saveTaskModal}>Save</button>
-            <button onClick={closeTaskModal} style={{ marginLeft: "8px" }}>
+            <button className="button" onClick={saveTaskModal}>Save</button>
+            <button className="button secondary" onClick={closeTaskModal} style={{ marginLeft: "8px" }}>
               Cancel
             </button>
+          </div>
+
+          <div style={{ marginTop: "16px" }}>
+            <h4 style={{ marginBottom: "6px" }}>Comments</h4>
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Write a comment..."
+              style={{ width: "100%", marginBottom: "8px" }}
+            />
+            <button className="button" onClick={addComment}>Add Comment</button>
+
+            {comments.length === 0 ? (
+              <p style={{ marginTop: "8px" }}>No comments yet.</p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: 0, marginTop: "8px" }}>
+                {comments.map((c) => (
+                  <li
+                    key={c._id}
+                    style={{
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      background: "#f9fafb",
+                      border: "1px solid #eef2f7",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                      {c.authorId?.name || "User"}
+                    </div>
+                    <div>{c.text}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import Workspace from "../models/Workspace.js";
 import User from "../models/User.js";
 import Invite from "../models/Invite.js";
+import Task from "../models/Task.js";
+import Board from "../models/Board.js";
 
 export const getUserWorkspaces = async (req, res) => {
     try {
@@ -218,3 +220,23 @@ export const declineInvite = async (req, res) => {
         res.status(500).json({ message: "Failed to decline invite", detail: err.message });
     }
 }
+
+export const getWorkspaceStats = async (req, res) => {
+    const { workspaceId } = req.params;
+
+    const boards = await Board.find({ workspaceId }).select("_id");
+    const boardIds = boards.map((b) => b._id);
+    const tasks = await Task.find({ boardId: { $in: boardIds }, archived: false });
+    const total = tasks.length;
+
+    const byStatus = tasks.reduce(
+        (acc, t) => {
+            const key = t.status || "TODO";
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        },
+        { TODO: 0, DOING: 0, DONE: 0 }
+    );
+
+    res.json({ total, byStatus });
+};

@@ -9,6 +9,7 @@ import WorkspaceMembers from "./pages/WorkspaceMembers";
 import { connectSocket, getSocket } from "./api/socket";
 import NotificationCenter from "./pages/NotificationCenter";
 import Invites from "./Invite";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   const { user, loading: authLoading, logout, token } = useAuth();
@@ -58,88 +59,84 @@ function App() {
   if (!user) return <Login />;
 
   return (
-    <>
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-
-      <h1>
-        Welcome, {user.name}
-        {activeWorkspace && ` - ${activeWorkspace.name}`}
-      </h1>
-      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-        <NotificationCenter />
-        <button onClick={logout}> Logout </button>
+    <div className="app-shell">
+      <div className="topbar">
+        <h1>
+          Welcome, {user.name}
+          {activeWorkspace && ` - ${activeWorkspace.name}`}
+        </h1>
+        <div className="top-actions">
+          <NotificationCenter />
+          <button className="button" onClick={logout}>Logout</button>
+        </div>
       </div>
+
+      <div className="panel">
+        <form onSubmit={createWorkspace} className="form-row">
+          <input
+            className="input"
+            type="text"
+            placeholder="New workspace name"
+            value={newWorkspaceName}
+            onChange={(e) => setNewWorkspaceName(e.target.value)}
+          />
+          <button className="button" type="submit">
+            Create Workspace
+          </button>
+        </form>
+
+        <div className="form-row section">
+          <label>Workspace:</label>
+          <select
+            className="select"
+            value={activeWorkspaceId || ""}
+            onChange={(e) => selectWorkspace(e.target.value)}
+          >
+            <option value="" disabled>
+              Select a workspace
+            </option>
+            {workspaces.map((ws) => (
+              <option key={ws._id} value={ws._id}>
+                {ws.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <form onSubmit={sendInvite} className="form-row">
+          <input
+            className="input"
+            type="email"
+            placeholder="Invite user email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+          />
+          <select
+            className="select"
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value)}
+          >
+            <option value="MEMBER">MEMBER</option>
+            <option value="VIEWER">VIEWER</option>
+          </select>
+          <button className="button" type="submit">
+            Invite
+          </button>
+        </form>
+        {inviteError && <p className="notice section">{inviteError}</p>}
+      </div>
+
+      <Invites />
+      <Dashboard />
+      <WorkspaceMembers />
+      <Boards />
+
+      {!activeWorkspaceId ? (
+        <p className="notice">Select a workspace to view activity.</p>
+      ) : (
+        <ActivityFeed workspaceId={activeWorkspaceId} />
+      )}
     </div>
-
-    <form onSubmit={createWorkspace} style={{ margin: "12px 0" }}>
-      <input
-        type="text"
-        placeholder="New workspace name"
-        value={newWorkspaceName}
-        onChange={(e) => setNewWorkspaceName(e.target.value)}
-      />
-      <button type="submit" style={{ marginLeft: "8px" }}>
-        Create Workspace
-      </button>
-    </form>
-
-    <div style={{ margin: "16px 0" }}>
-      <label style={{ marginRight: "8px" }}>Workspace:</label>
-      <select
-        value={activeWorkspaceId || ""}
-        onChange={(e) => selectWorkspace(e.target.value)}
-      >
-        <option value="" disabled>
-          Select a workspace
-        </option>
-        {workspaces.map((ws) => (
-          <option key={ws._id} value={ws._id}>
-            {ws.name}
-          </option>
-        ))}
-      </select>
-    </div>
-
-    <form onSubmit={sendInvite} style={{ margin: "12px 0" }}>
-      <input
-        type="email"
-        placeholder="Invite user email"
-        value={inviteEmail}
-        onChange={(e) => setInviteEmail(e.target.value)}
-      />
-      <select
-        value={inviteRole}
-        onChange={(e) => setInviteRole(e.target.value)}
-        style={{ marginLeft: "8px" }}
-      >
-        <option value="MEMBER">MEMBER</option>
-        <option value="VIEWER">VIEWER</option>
-      </select>
-      <button type="submit" style={{ marginLeft: "8px" }}>
-        Invite
-      </button>
-    </form>
-    {inviteError && (
-      <p style={{ color: "red", marginTop: "4px" }}>{inviteError}</p>
-    )}
-
-    <Invites />
-    <WorkspaceMembers />
-    <Boards />
-
-    {!activeWorkspaceId ? (
-      <p>Select a workspace to view activity.</p>
-    ) : (
-      <ActivityFeed workspaceId={activeWorkspaceId} />
-    )}
-
-    </>
   );
 }
 

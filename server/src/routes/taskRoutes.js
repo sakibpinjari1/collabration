@@ -10,6 +10,8 @@ import {
     updateTask,
     archiveTask,
     assignTask,
+    getComments,
+    createComment,
 } from "../controllers/taskController.js";
 
 const router = express.Router();
@@ -52,5 +54,21 @@ router.post(
     requireRole(["OWNER", "MEMBER"]),
     assignTask
 );
+
+router.get(
+  "/:workspaceId/tasks/:taskId/comments",
+  protect,
+  requireWorkspaceMember,
+  getComments
+);
+
+router.post(
+  "/:workspaceId/tasks/:taskId/comments",
+  protect,
+  requireWorkspaceMember,
+  requireRole(["OWNER", "MEMBER"]),
+  createComment
+);
+
 
 export default router;

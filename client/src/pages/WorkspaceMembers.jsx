@@ -83,10 +83,10 @@ function WorkspaceMembers() {
   if (error) return <p>{error}</p>;
 
   return (
-    <div style={{ margin: "16px 0" }}>
+    <div className="card" style={{ margin: "16px 0" }}>
       <h3>Members</h3>
       {members.length === 0 && <p>No members yet.</p>}
-      <ul>
+      <ul className="list-reset">
         {members.map((m) => {
           const memberId = m.userId?._id || m.userId;
           const isSelf = user?._id && String(memberId) === String(user._id);
@@ -107,6 +107,7 @@ function WorkspaceMembers() {
               {currentUserRole === "OWNER" && !isSelf && (
                 <>
                   <select
+                    className="select"
                     value={m.role}
                     onChange={(e) =>
                       updateMemberRole(memberId, e.target.value)
@@ -117,6 +118,7 @@ function WorkspaceMembers() {
                     <option value="VIEWER">VIEWER</option>
                   </select>
                   <button
+                    className="button secondary"
                     type="button"
                     onClick={() => removeMember(memberId)}
                     style={{ marginLeft: "8px" }}

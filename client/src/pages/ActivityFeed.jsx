@@ -91,12 +91,12 @@ function ActivityFeed() {
   if (error) return <p>{error}</p>;
 
   return (
-    <div>
+    <div className="card" style={{ marginTop: "16px" }}>
       <h2>Activity - {activeWorkspace?.name}</h2>
 
       {events.length === 0 && <p>No activity yet</p>}
 
-      <ul>
+      <ul className="list-reset">
         {events.map((event) => (
           <li key={event._id}>
             <strong>{event.type}</strong> - {event.actorId?.name || "Someone"}

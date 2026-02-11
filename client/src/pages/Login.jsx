@@ -34,39 +34,42 @@ function Login() {
     };
 
     return (
-        <div style={{ maxWidth: "400px", margin: "50px auto", padding: "20px" }}>
+        <div className="card" style={{ maxWidth: "420px", margin: "50px auto", padding: "20px" }}>
             <form onSubmit={handleSubmit}>
                 <h2>{isRegister ? "Create Account" : "Login"}</h2>
                 
-                {error && <p style={{color: "red"}}>{error}</p>}
+                {error && <p className="notice">{error}</p>}
 
                 {isRegister && (
                     <input
+                        className="input"
                         type="text"
                         placeholder="Name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        style={{ width: "100%", padding: "8px", marginBottom: "10px", boxSizing: "border-box" }}
+                        style={{ width: "100%", marginBottom: "10px" }}
                     />
                 )}
 
                 <input
+                    className="input"
                     type="email"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    style={{ width: "100%", padding: "8px", marginBottom: "10px", boxSizing: "border-box" }}
+                    style={{ width: "100%", marginBottom: "10px" }}
                 />
 
                 <input
+                    className="input"
                     type="password"
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    style={{ width: "100%", padding: "8px", marginBottom: "10px", boxSizing: "border-box" }}
+                    style={{ width: "100%", marginBottom: "10px" }}
                 />
 
-                <button type="submit" style={{ width: "100%", padding: "10px", marginBottom: "10px" }}>
+                <button className="button" type="submit" style={{ width: "100%", marginBottom: "10px" }}>
                     {isRegister ? "Register" : "Login"}
                 </button>
             </form>
@@ -78,7 +81,8 @@ function Login() {
                         setIsRegister(!isRegister);
                         setError("");
                     }}
-                    style={{ background: "none", border: "none", color: "blue", cursor: "pointer", textDecoration: "underline" }}
+                    className="button secondary"
+                    style={{ background: "none", border: "none", textDecoration: "underline" }}
                 >
                     {isRegister ? "Login here" : "Register here"}
                 </button>

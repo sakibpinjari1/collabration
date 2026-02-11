@@ -21,14 +21,14 @@ function Invites() {
     if (invites.length === 0) return null;
 
   return (
-    <div style={{ margin: "12px 0" }}>
+    <div className="card" style={{ margin: "12px 0" }}>
       <h3>Pending Invites</h3>
-      <ul>
+      <ul className="list-reset">
         {invites.map((i) => (
           <li key={i._id}>
             {i.workspaceId?.name} - {i.role}
-            <button onClick={() => respond(i._id, "accept")}>Accept</button>
-            <button onClick={() => respond(i._id, "decline")}>Decline</button>
+            <button className="button" onClick={() => respond(i._id, "accept")}>Accept</button>
+            <button className="button secondary" onClick={() => respond(i._id, "decline")}>Decline</button>
           </li>
         ))}
       </ul>

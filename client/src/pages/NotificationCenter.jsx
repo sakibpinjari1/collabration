@@ -142,6 +142,7 @@ function NotificationCenter() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        className="button secondary"
         style={{ position: "relative" }}
       >
         Notifications
@@ -164,20 +165,7 @@ function NotificationCenter() {
       </button>
 
       {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "36px",
-            width: "320px",
-            background: "white",
-            border: "1px solid #e6e6ef",
-            borderRadius: "10px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-            padding: "10px",
-            zIndex: 1000,
-          }}
-        >
+        <div className="notification-panel">
           <div
             style={{
               display: "flex",
@@ -197,7 +185,7 @@ function NotificationCenter() {
               </button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+          <div style={{ display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
             {[
               { id: "ALL", label: "All" },
               { id: "TASK_ASSIGNED", label: "Assignments" },
@@ -214,7 +202,8 @@ function NotificationCenter() {
                   padding: "4px 8px",
                   borderRadius: "6px",
                   border: "1px solid #e5e7eb",
-                  background: filter === tab.id ? "#eef2ff" : "white",
+                  background: filter === tab.id ? "#1f2a3a" : "transparent",
+                  color: "white",
                 }}
               >
                 {tab.label}
@@ -224,7 +213,7 @@ function NotificationCenter() {
           {filteredItems.length === 0 ? (
             <div style={{ color: "#6b7280" }}>No notifications yet.</div>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            <ul className="list-reset">
               {filteredItems.map((n) => (
                 <li
                   key={n.id}

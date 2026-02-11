@@ -14,6 +14,7 @@ import {
   getMyInvites,
   acceptInvite,
   declineInvite,
+  getWorkspaceStats,
 } from "../controllers/workspaceController.js";
 
 const router = express.Router();
@@ -59,8 +60,17 @@ router.delete(
   removeMember,
 );
 
+
+
 router.get("/invites/me", protect, getMyInvites);
 router.post("/invites/:inviteId/accept", protect, acceptInvite);
 router.post("/invites/:inviteId/decline", protect, declineInvite);
+
+router.get(
+  "/:workspaceId/stats",
+  protect,
+  requireWorkspaceMember,
+  getWorkspaceStats,
+);
 
 export default router;
