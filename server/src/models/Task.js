@@ -40,6 +40,12 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    attachments: [
+      {
+        url: { type: String, required: true },
+        label: { type: String, default: "" },
+      },
+    ],
     status: {
         type: String,
         enum: ["TODO", "DOING", "DONE"],

@@ -1,12 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import { connectSocket, getSocket } from "../api/socket";
 
 const WorkspaceContext = createContext(null);
 
 export const WorkspaceProvider = ({ children }) => {
+  const { user, token } = useAuth();
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(
-    () => localStorage.getItem("activeWorkspaceId") || null
+    () => sessionStorage.getItem("activeWorkspaceId") || null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,62 +17,76 @@ export const WorkspaceProvider = ({ children }) => {
   const addWorkspace = (workspace) => {
   setWorkspaces((prev) => [...prev, workspace]);
   setActiveWorkspaceId(workspace._id);
-  localStorage.setItem("activeWorkspaceId", workspace._id);
+  sessionStorage.setItem("activeWorkspaceId", workspace._id);
 };
 
 
-  useEffect(() => {
-    let isMounted = true;
+  const refreshWorkspaces = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/workspaces");
+      const list = res.data || [];
+      setWorkspaces(list);
 
-    const fetchWorkspaces = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get("/workspaces");
-
-        if (!isMounted) return;
-
-        const list = res.data || [];
-        setWorkspaces(list);
-
-        if (activeWorkspaceId) {
-          const exists = list.some((w) => w._id === activeWorkspaceId);
-          if (!exists) {
-            setActiveWorkspaceId(null);
-            localStorage.removeItem("activeWorkspaceId");
-          }
-        }
-
-        if (list.length === 1) {
-          const id = list[0]._id;
-          setActiveWorkspaceId(id);
-          localStorage.setItem("activeWorkspaceId", id);
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        if (err?.response?.status === 403) {
-          setError("You don't have access to this workspace.");
+      if (activeWorkspaceId) {
+        const exists = list.some((w) => w._id === activeWorkspaceId);
+        if (!exists) {
           setActiveWorkspaceId(null);
-          localStorage.removeItem("activeWorkspaceId");
-        } else {
-          setError("Failed to load workspaces");
+          sessionStorage.removeItem("activeWorkspaceId");
         }
-      } finally {
-        if (isMounted) setLoading(false);
       }
+
+      if (list.length === 1) {
+        const id = list[0]._id;
+          setActiveWorkspaceId(id);
+          sessionStorage.setItem("activeWorkspaceId", id);
+      }
+    } catch (err) {
+      if (err?.response?.status === 403) {
+        setError("You don't have access to this workspace.");
+        setActiveWorkspaceId(null);
+        sessionStorage.removeItem("activeWorkspaceId");
+      } else {
+        setError("Failed to load workspaces");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!token || !user?._id) {
+      setWorkspaces([]);
+      setActiveWorkspaceId(null);
+      setLoading(false);
+      return;
+    }
+
+    refreshWorkspaces();
+  }, [token, user?._id, refreshWorkspaces]);
+
+  useEffect(() => {
+    let socket = getSocket();
+    if (!socket && token) {
+      socket = connectSocket(token);
+    }
+    if (!socket) return;
+
+    const handleWorkspacesUpdated = () => {
+      refreshWorkspaces();
     };
 
-    fetchWorkspaces();
-
+    socket.on("workspaces-updated", handleWorkspacesUpdated);
     return () => {
-      isMounted = false;
+      socket.off("workspaces-updated", handleWorkspacesUpdated);
     };
-  }, []);
+  }, [token, refreshWorkspaces]);
 
   useEffect(() => {
     if (activeWorkspaceId) {
-      localStorage.setItem("activeWorkspaceId", activeWorkspaceId);
+      sessionStorage.setItem("activeWorkspaceId", activeWorkspaceId);
     } else {
-      localStorage.removeItem("activeWorkspaceId");
+      sessionStorage.removeItem("activeWorkspaceId");
     }
   }, [activeWorkspaceId]);
 
@@ -88,6 +105,7 @@ export const WorkspaceProvider = ({ children }) => {
     addWorkspace,
     loading,
     error,
+    refreshWorkspaces,
 
     selectWorkspace,
     clearWorkspace: () => setActiveWorkspaceId(null),
@@ -107,3 +125,4 @@ export const useWorkspace = () => {
   }
   return context;
 };
+

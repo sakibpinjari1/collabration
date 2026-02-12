@@ -1,4 +1,4 @@
-import { createContext,  useContext, useEffect, useState } from "react";
+﻿import { createContext,  useContext, useEffect, useState } from "react";
 import api from "../api/axios";
 
 import {
@@ -15,8 +15,8 @@ export const AuthProvider = ({children}) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const storedToken = localStorage.getItem("token");
-        const storedUser = localStorage.getItem("user");
+        const storedToken = sessionStorage.getItem("token");
+        const storedUser = sessionStorage.getItem("user");
 
         if(storedToken && storedUser) {
             setToken(storedToken);
@@ -33,8 +33,8 @@ export const AuthProvider = ({children}) => {
         setToken(res.data.token);
         setUser(res.data.user);
 
-        localStorage.setItem("token", res.data.token);
-        localStorage.setItem("user", JSON.stringify(res.data.user));
+        sessionStorage.setItem("token", res.data.token);
+        sessionStorage.setItem("user", JSON.stringify(res.data.user));
 
         connectSocket(res.data.token);
     };
@@ -46,9 +46,9 @@ export const AuthProvider = ({children}) => {
     const logout = () => {
         setToken(null);
         setUser(null);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("activeWorkspaceId");
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("activeWorkspaceId");
 
         disconnectSocket();
     };
@@ -62,3 +62,4 @@ export const AuthProvider = ({children}) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

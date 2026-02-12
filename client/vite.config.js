@@ -8,4 +8,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    host: true,          // allows external access
+    port: 5173,          // keep your dev port (change if different)
+    strictPort: true,
+    allowedHosts: true   // allows Cloudflare tunnel hosts
+  }
 })

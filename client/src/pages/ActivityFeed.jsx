@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { useWorkspace } from "../state/WorkspaceContext.jsx";
 import { connectSocket, getSocket } from "../api/socket";
@@ -11,10 +11,8 @@ function ActivityFeed() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
-  /**
-   * Fetch activity when active workspace changes
-   */
   useEffect(() => {
     if (!activeWorkspaceId) {
       setEvents([]);
@@ -26,9 +24,7 @@ function ActivityFeed() {
         setLoading(true);
         setError(null);
 
-        const res = await api.get(
-          `/workspaces/${activeWorkspaceId}/activity`
-        );
+        const res = await api.get(`/workspaces/${activeWorkspaceId}/activity`);
         setEvents(res.data || []);
       } catch (err) {
         if (err?.response?.status === 403) {
@@ -79,27 +75,70 @@ function ActivityFeed() {
     };
   }, [activeWorkspaceId, token]);
 
-
-  /**
-   * Render states (intentional, not errors)
-   */
   if (!activeWorkspaceId) {
-    return <p>Select a workspace to view activity.</p>;
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+        Select a workspace to view activity.
+      </div>
+    );
   }
 
-  if (loading) return <p>Loading activity...</p>;
-  if (error) return <p>{error}</p>;
+  if (loading) return <p className="text-sm text-slate-500">Loading activity...</p>;
+  if (error) return <p className="text-sm text-red-600">{error}</p>;
+
+  const exportCsv = async () => {
+    if (!activeWorkspaceId) return;
+    try {
+      setExporting(true);
+      const res = await api.get(`/workspaces/${activeWorkspaceId}/activity/export`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([res.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `activity-${activeWorkspaceId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError("Failed to export activity");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <div className="card" style={{ marginTop: "16px" }}>
-      <h2>Activity - {activeWorkspace?.name}</h2>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Activity</h2>
+          <span className="text-sm text-slate-500">{activeWorkspace?.name}</span>
+        </div>
+        <button
+          type="button"
+          onClick={exportCsv}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          disabled={exporting}
+        >
+          {exporting ? "Exporting..." : "Export CSV"}
+        </button>
+      </div>
 
-      {events.length === 0 && <p>No activity yet</p>}
+      {events.length === 0 && (
+        <p className="mt-3 text-sm text-slate-500">No activity yet.</p>
+      )}
 
-      <ul className="list-reset">
+      <ul className="mt-4 space-y-2">
         {events.map((event) => (
-          <li key={event._id}>
-            <strong>{event.type}</strong> - {event.actorId?.name || "Someone"}
+          <li
+            key={event._id}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+          >
+            <span className="font-semibold text-slate-900">{event.type}</span>
+            <span className="text-slate-500"> · </span>
+            {event.actorId?.name || "Someone"}
           </li>
         ))}
       </ul>
@@ -108,3 +147,4 @@ function ActivityFeed() {
 }
 
 export default ActivityFeed;
+

@@ -3,6 +3,8 @@ import User from "../models/User.js";
 import Invite from "../models/Invite.js";
 import Task from "../models/Task.js";
 import Board from "../models/Board.js";
+import mongoose from "mongoose";
+import { io } from "../../server.js";
 
 export const getUserWorkspaces = async (req, res) => {
     try {
@@ -36,49 +38,60 @@ export const createWorkspace = async (req, res) => {
 };
 
 export const inviteToWorkspace = async (req, res) => {
-    const { workspaceId } = req.params;
-    const { email, role = "MEMBER" } = req.body;
+    try {
+        const { workspaceId } = req.params;
+        const { email, role = "MEMBER" } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const allowedRoles = ["MEMBER", "VIEWER"];
-    if (!allowedRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
-    }
-
-    const workspace = await Workspace.findById(workspaceId);
-    if (!workspace) return res.status(404).json({ message: "Worspace not found"});
-
-    const user = await User.findOne({ email: normalizedEmail });
-    if (user) {
-        const alreadyMember = workspace.members.some(
-            (m) => m.userId.toString() === user._id.toString()
-        );
-        if (alreadyMember) {
-            return res.status(400).json({ message: "User already in workspace" });
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
         }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const allowedRoles = ["MEMBER", "VIEWER"];
+        if (!allowedRoles.includes(role)) {
+            return res.status(400).json({ message: "Invalid role" });
+        }
+
+        const workspace = await Workspace.findById(workspaceId);
+        if (!workspace) return res.status(404).json({ message: "Worspace not found"});
+
+        const user = await User.findOne({ email: normalizedEmail });
+        if (user) {
+            const alreadyMember = workspace.members.some(
+                (m) => m.userId.toString() === user._id.toString()
+            );
+            if (alreadyMember) {
+                return res.status(400).json({ message: "User already in workspace" });
+            }
+        }
+
+        const existingInvite = await Invite.findOne({
+            workspaceId,
+            email: normalizedEmail,
+            status: "PENDING",
+        });
+
+        if (existingInvite) {
+            return res.status(400).json({ message: "Invite already pending"});
+        }
+
+        const invite = await Invite.create({
+            workspaceId,
+            email: normalizedEmail,
+            role,
+            invitedBy: req.userId,
+        });
+        if (user?._id) {
+            io.to(user._id.toString()).emit("invites-updated");
+        }
+        res.json(invite);
+    } catch (err) {
+        if (err?.code === 11000) {
+            return res.status(400).json({ message: "Invite already pending" });
+        }
+        console.error("INVITE ERROR:", err);
+        res.status(500).json({ message: "Failed to create invite", detail: err.message });
     }
-
-    const existingInvite = await Invite.findOne({
-        workspaceId,
-        email: normalizedEmail,
-        status: "PENDING",
-    });
-
-    if (existingInvite) {
-        return res.status(400).json({ message: "Invite already pending"});
-    }
-
-    const invite = await Invite.create({
-        workspaceId,
-        email: normalizedEmail,
-        role,
-        invitedBy: req.userId,
-    });
-    res.json(invite);
 };
 
 
@@ -110,6 +123,7 @@ export const updateMemberRole = async (req, res) => {
     member.role = role;
     await workspace.save();
 
+    io.to(workspaceId.toString()).emit("members-updated");
     res.json({ message: "Role updated", member});
 }
 
@@ -142,12 +156,14 @@ export const removeMember = async (req, res) => {
 
     await workspace.save();
 
+    io.to(workspaceId.toString()).emit("members-updated");
     res.json({message: "member removed"});
 };
 
 export const getMyInvites = async (req, res) => {
+    const email = String(req.user?.email || "").toLowerCase();
     const invites = await Invite.find({
-        email: req.user.email,
+        email,
         status: "PENDING",
     }).populate("workspaceId", "name");
     res.json(invites);
@@ -158,7 +174,12 @@ export const acceptInvite = async (req, res) => {
         if (!req.user || !req.user.email) {
             return res.status(401).json({ message: "Not authorized" });
         }
-        const invite = await Invite.findById(req.params.inviteId);
+        const { inviteId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(inviteId)) {
+            return res.status(400).json({ message: "Invalid invite id" });
+        }
+
+        const invite = await Invite.findById(inviteId);
         if (!invite || invite.status !== "PENDING") {
             return res.status(404).json({message: "Invite not found"});
         }
@@ -177,8 +198,24 @@ export const acceptInvite = async (req, res) => {
             (m) => m.userId.toString() === req.user._id.toString()
         );
         if (alreadyMember) {
+            await Invite.deleteMany({
+                workspaceId: invite.workspaceId,
+                email: invite.email,
+                status: "ACCEPTED",
+            });
             invite.status = "ACCEPTED";
-            await invite.save();
+            try {
+                await invite.save();
+            } catch (err) {
+                if (err?.code === 11000) {
+                    await invite.deleteOne();
+                } else {
+                    throw err;
+                }
+            }
+            io.to(req.user._id.toString()).emit("invites-updated");
+            io.to(req.user._id.toString()).emit("workspaces-updated");
+            io.to(invite.workspaceId.toString()).emit("members-updated");
             return res.json({ message: "Invite accepted" });
         }
 
@@ -186,8 +223,24 @@ export const acceptInvite = async (req, res) => {
         await workspace.save();
 
         invite.status = "ACCEPTED";
-        await invite.save();
+        await Invite.deleteMany({
+            workspaceId: invite.workspaceId,
+            email: invite.email,
+            status: "ACCEPTED",
+        });
+        try {
+            await invite.save();
+        } catch (err) {
+            if (err?.code === 11000) {
+                await invite.deleteOne();
+            } else {
+                throw err;
+            }
+        }
 
+        io.to(req.user._id.toString()).emit("invites-updated");
+        io.to(req.user._id.toString()).emit("workspaces-updated");
+        io.to(invite.workspaceId.toString()).emit("members-updated");
         res.json({ message: "Invite accepted"});
     } catch (err) {
         console.error("ACCEPT INVITE ERROR:", err);
@@ -200,7 +253,11 @@ export const declineInvite = async (req, res) => {
         if (!req.user || !req.user.email) {
             return res.status(401).json({ message: "Not authorized" });
         }
-        const invite = await Invite.findById(req.params.inviteId);
+        const { inviteId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(inviteId)) {
+            return res.status(400).json({ message: "Invalid invite id" });
+        }
+        const invite = await Invite.findById(inviteId);
 
         if(!invite || invite.status !== "PENDING") {
             return res.status(404).json({message: "Invite not found"});
@@ -214,6 +271,7 @@ export const declineInvite = async (req, res) => {
         invite.status = "DECLINED";
         await invite.save();
 
+        io.to(req.user._id.toString()).emit("invites-updated");
         res.json({message: "Invite declined"})
     } catch (err) {
         console.error("DECLINE INVITE ERROR:", err);
@@ -238,5 +296,22 @@ export const getWorkspaceStats = async (req, res) => {
         { TODO: 0, DOING: 0, DONE: 0 }
     );
 
-    res.json({ total, byStatus });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const soon = new Date(today);
+    soon.setDate(soon.getDate() + 3);
+
+    let overdue = 0;
+    let dueSoon = 0;
+    for (const t of tasks) {
+        if (!t.dueDate) continue;
+        if ((t.status || "TODO") === "DONE") continue;
+        const due = new Date(t.dueDate);
+        if (Number.isNaN(due.getTime())) continue;
+        due.setHours(0, 0, 0, 0);
+        if (due < today) overdue += 1;
+        else if (due <= soon) dueSoon += 1;
+    }
+
+    res.json({ total, byStatus, due: { overdue, dueSoon } });
 };
